@@ -12,6 +12,14 @@ app which allows you to browse certain aspects of your gameplay on the
 
 Note also: this script is specific to *Splatoon 3*.
 
+[Emulator Guide](#emulator-guide)
+
+[Termux with Root Guide](#termux-with-root-guide)
+
+# Emulator Guide
+
+Use [nso-get-tokens.sh](./nso-get-tokens.sh)
+
 ## Environment
 
 This script has been tested on Fedora, where `/bin/sh` is bash.  It
@@ -69,3 +77,56 @@ guarantees.
 
  - With the emulator still running, run this script in a terminal.  If all
    goes well, it prints out your gtoken and bulletToken.
+
+# Termux with Root Guide
+
+Use [nso-get-tokens-termux.sh](./nso-get-tokens-termux.sh)
+
+## Environment
+
+This script has been tested on a real Android phone, with KernelSU and Termux installed. 
+It may work on Magisk or other `su` programs, however no guarantees either.
+
+## Requirements
+
+ - **Termux** (a terminal emulator with `apt`). 
+   You should get **Termux** from [GitHub Releases](https://github.com/termux/termux-app/releases/latest) or [F-Droid](https://f-droid.org/en/packages/com.termux/). 
+   **DO NOT install from Google Play** as [it should be considered an unofficial/forked release source](https://github.com/termux/termux-app/discussions/4000).
+
+ - Other command-line tools: **sqlite3**, **curl** and **perl**, all of which
+   you may already have installed, but if not then they should be available
+   from your Termux apt.
+   
+ - An Internet connection.
+
+ - An Android device with Root access. 
+   This script was tested on [KernelSU](https://kernelsu.org/) rooted phone.
+   [Magisk](https://github.com/topjohnwu/Magisk) may work too.
+
+ - Just in case:
+   In order to use NSO app on an Android with Root access, 
+   you need to properly hide your Root for NSO app. Or it instantly exits.
+
+## Setup
+
+ - Install **Termux** on your device.
+
+ - Grant Root access to **Termux** with your Root Manager (usually in Magisk, KernelSU app).
+
+ - Hide your Root to NSO app, otherwise it will refuse to run at all.
+
+ - Copy the script to **Termux** home directory. It's usually `/data/data/com.termux/files/home`, 
+   or you could copy via Android built-in File Browser.
+
+ - Install `sqlite` `curl` `perl` packages: `pkg install -y sqlite curl perl`
+
+ - Start NSO app and sign in to your Nintendo Account.
+
+## Obtaining your tokens
+ - Start the Android device (if not already started), start up the NSO
+   app, enter Splatoon 3 and browse some data.  Exit Splatoon 3 back to
+   the NSO menu, and wait a few seconds.  This should ensure that the NSO
+   app writes the cookie data back to storage.
+
+ - Run this script in **Termux**.  If all goes well, 
+   it prints out your gtoken and bulletToken.
