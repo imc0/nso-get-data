@@ -1,14 +1,9 @@
-#!/bin/sh
+#!/data/data/com.termux/files/usr/bin/sh
 #
-# Retrieve your NSO gtoken by connecting to a virtual Android device
-# and querying NSO's cookie database.  Then ask Nintendo SplatNet
-# for a bulletToken.  These tokens can then be pasted into s3s.
+# Retrieve your NSO gtoken using rooted Android device with Termux.
+# Then ask Nintendo SplatNet for a bulletToken.  
+# These tokens can then be pasted into s3s.
 #
-
-# If adb is not on your path, write the full path here:
-adb=adb
-# Optional extra args to supply to adb (e.g. '-e')
-adbargs=""
 
 # Make a directory to hold cache files for this script
 : ${XDG_CACHE_HOME:="$HOME"/.cache}
@@ -30,16 +25,15 @@ wvdefault=6.0.0-9253fd84
 
 # Check presence of essential tools
 ok=true
-if ! command -v "$adb" >/dev/null; then
+if ! su -c "cat < /data/user/0/com.nintendo.znca/app_webview/Default/Cookies" >/dev/null; then
     cat <<EOF >&2
-Error: adb is not on your path. You can get it from Android SDK in the
-platform-tools package, or maybe from your distro in the android-tools
-or adb package. If it is installed, you can edit this script to specify
-the full path.
-Current value: adb=$adb
+Error: cannot read NSO app cookie file. Either cookie cache does not exist,
+or no root permission in Termux. Open SplatNet 3 in NSO app, make sure
+you granted root permission to Termux in corresponding app (Magisk, KernelSU etc.)
 EOF
     ok=false
 fi
+
 for cmd in sqlite3 curl perl; do
     if ! command -v "$cmd" > /dev/null; then
         echo "Error: $cmd is not in your path.  Install it from your distro." >&2
@@ -48,46 +42,14 @@ for cmd in sqlite3 curl perl; do
 done
 if ! $ok; then exit 1; fi
 
-# Check adb root
-out="$("$adb" $adbargs root 2>&1)"
-case "$out" in
-    *"more than"*)
-        echo "Error: $out" >&2
-        echo "You can edit this script to add adb arguments in order to specify
-which device to connect to." >&2
-        exit 1
-        ;;
-    *"no devices"*|*"unable to connect"*)
-        echo "Error: $out" >&2
-        echo "Please make sure your Android device is running." >&2
-        exit 1
-        ;;
-    *production*)
-        echo "Error: you do not have adb root on your device. If you are using an
-Android emulator you must select a system image without Google Play." >&2
-        exit 1
-        ;;
-    *restarting*|*already*)
-        # everything OK
-        ;;
-    *cannot*)
-        # unknown but this is probably an error
-        echo "Error: $out" >&2
-        exit 1
-        ;;
-    *)
-        # unknown and it might not be an error
-        echo "$out" >&2
-esac
-
 # Obtain and check the cookie file
 mkdir -p "$nsodir"
 chmod 700 "$nsodir"
 ckfile="$nsodir/Cookies"
 rm -f "$ckfile"
-out="$("$adb" $adbargs pull -a /data/user/0/com.nintendo.znca/app_webview/Default/Cookies "$nsodir" 2>&1)"
+out="$(su -c cp /data/user/0/com.nintendo.znca/app_webview/Default/Cookies $nsodir 2>&1)"
 if ! [ -f "$ckfile" ]; then
-    echo "Error: adb did not pull the cookie file" >&2
+    echo "Error: did not copy the cookie file" >&2
     echo "$out" >&2
     exit 1
 fi
@@ -97,7 +59,12 @@ if [ "$((cdate+6*3600))" -lt $ndate ]; then
     echo "Warning: the cookie file is out of date.  Gtoken may be stale." >&2
 fi
 
+# Give Cookies file permission to everyone
+
+su -c chmod a+rwx "$ckfile"
+
 # Obtain and check the gtoken
+
 g="$(sqlite3 "$nsodir"/Cookies "SELECT value from (SELECT * FROM cookies WHERE name='_gtoken' ORDER BY creation_utc DESC LIMIT 1);")"
 if [ -z "$g" ]; then
     echo "Error: failed to pull the gtoken from the cookie file" >&2
