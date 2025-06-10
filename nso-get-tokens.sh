@@ -98,7 +98,7 @@ if [ "$((cdate+6*3600))" -lt $ndate ]; then
 fi
 
 # Obtain and check the gtoken
-g="$(sqlite3 "$nsodir"/Cookies "select value from cookies where name='_gtoken';")"
+g="$(sqlite3 "$nsodir"/Cookies "select value from cookies where name='_gtoken' order by creation_utc desc limit 1;")"
 if [ -z "$g" ]; then
     echo "Error: failed to pull the gtoken from the cookie file" >&2
     exit 1
