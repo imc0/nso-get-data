@@ -132,9 +132,9 @@ else
     chmod 700 "$nsodir"
     rm -f "$ckfile"
     if $use_su; then
-        out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$nsodir"/Cookies 2>&1)"
+        out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$ckfile" 2>&1)"
     else
-        out="$("$adb" $adbargs pull -a "$cookiesfile" "$nsodir"/Cookies 2>&1)"
+        out="$("$adb" $adbargs pull -a "$cookiesfile" "$ckfile" 2>&1)"
     fi
     if ! [ -f "$ckfile" ]; then
         echo "Error: adb did not pull the cookie file" >&2
