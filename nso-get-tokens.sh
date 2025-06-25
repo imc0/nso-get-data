@@ -35,12 +35,14 @@ help () {
     cat <<EOH >&2
 Usage: $0 [flags]
 where valid flags are:
+    -C | -cache  don't pull cookies from the device; use the cached file
     -h | -help   print this help
     -su          Android device needs 'su' to access the NSO database
 EOH
 }
 
 use_su=false
+use_cache=false
 while [ $# -gt 0 ]; do
     flag="$1"
     # strip double '-' so that --flag is the same as -flag
@@ -52,6 +54,8 @@ while [ $# -gt 0 ]; do
         help; exit ;;
     -su)
         use_su=true ;;
+    -C|-cache)
+        use_cache=true ;;
     *)
         echo "Unrecognised argument: '$flag' (use -h for help)" >&2
         exit 1
@@ -61,15 +65,17 @@ done
 
 # Check presence of essential tools
 ok=true
-if ! command -v "$adb" >/dev/null; then
-    cat <<EOF >&2
+if ! $use_cache; then
+    if ! command -v "$adb" >/dev/null; then
+        cat <<EOF >&2
 Error: adb is not on your path. You can get it from Android SDK in the
 platform-tools package, or maybe from your distro in the android-tools
 or adb package. If it is installed, you can edit this script to specify
 the full path.
 Current value: adb=$adb
 EOF
-    ok=false
+        ok=false
+    fi
 fi
 for cmd in sqlite3 curl perl; do
     if ! command -v "$cmd" > /dev/null; then
@@ -79,7 +85,7 @@ for cmd in sqlite3 curl perl; do
 done
 if ! $ok; then exit 1; fi
 
-if ! $use_su; then
+if ! $use_cache && ! $use_su; then
     # Check adb root
     out="$("$adb" $adbargs root 2>&1)"
     case "$out" in
@@ -115,19 +121,26 @@ if ! $use_su; then
 fi
 
 # Obtain and check the cookie file
-mkdir -p "$nsodir"
-chmod 700 "$nsodir"
 ckfile="$nsodir/Cookies"
-rm -f "$ckfile"
-if $use_su; then
-    out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$nsodir"/Cookies 2>&1)"
+if $use_cache; then
+    if ! [ -r "$ckfile" ]; then
+        echo "Error: there is no cached Cookies file for -cache to use" >&2
+        exit 1
+    fi
 else
-    out="$("$adb" $adbargs pull -a "$cookiesfile" "$nsodir"/Cookies 2>&1)"
-fi
-if ! [ -f "$ckfile" ]; then
-    echo "Error: adb did not pull the cookie file" >&2
-    echo "$out" >&2
-    exit 1
+    mkdir -p "$nsodir"
+    chmod 700 "$nsodir"
+    rm -f "$ckfile"
+    if $use_su; then
+        out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$nsodir"/Cookies 2>&1)"
+    else
+        out="$("$adb" $adbargs pull -a "$cookiesfile" "$nsodir"/Cookies 2>&1)"
+    fi
+    if ! [ -f "$ckfile" ]; then
+        echo "Error: adb did not pull the cookie file" >&2
+        echo "$out" >&2
+        exit 1
+    fi
 fi
 cdate="$(stat -c %Y "$ckfile")"
 ndate="$(date +%s)"
