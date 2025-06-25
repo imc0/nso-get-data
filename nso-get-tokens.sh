@@ -27,6 +27,37 @@ nsodir="$NSODATA"/cookies
 snhost=api.lp1.av5ja.srv.nintendo.net
 # Last known SplatNet web version:
 wvdefault=10.0.0-88706e32
+# Location of the Cookies file on the device
+cookiesfile=/data/user/0/com.nintendo.znca/app_webview/Default/Cookies
+
+# Argument processing and help
+help () {
+    cat <<EOH >&2
+Usage: $0 [flags]
+where valid flags are:
+    -h | -help   print this help
+    -su          Android device needs 'su' to access the NSO database
+EOH
+}
+
+use_su=false
+while [ $# -gt 0 ]; do
+    flag="$1"
+    # strip double '-' so that --flag is the same as -flag
+    if [ "$flag" != "${flag#--}" ]; then
+        flag="${flag#-}"
+    fi
+    case "$flag" in
+    -h|-help)
+        help; exit ;;
+    -su)
+        use_su=true ;;
+    *)
+        echo "Unrecognised argument: '$flag' (use -h for help)" >&2
+        exit 1
+    esac
+    shift
+done
 
 # Check presence of essential tools
 ok=true
@@ -48,44 +79,51 @@ for cmd in sqlite3 curl perl; do
 done
 if ! $ok; then exit 1; fi
 
-# Check adb root
-out="$("$adb" $adbargs root 2>&1)"
-case "$out" in
-    *"more than"*)
-        echo "Error: $out" >&2
-        echo "You can edit this script to add adb arguments in order to specify
-which device to connect to." >&2
-        exit 1
-        ;;
-    *"no devices"*|*"unable to connect"*)
-        echo "Error: $out" >&2
-        echo "Please make sure your Android device is running." >&2
-        exit 1
-        ;;
-    *production*)
-        echo "Error: you do not have adb root on your device. If you are using an
-Android emulator you must select a system image without Google Play." >&2
-        exit 1
-        ;;
-    *restarting*|*already*)
-        # everything OK
-        ;;
-    *cannot*)
-        # unknown but this is probably an error
-        echo "Error: $out" >&2
-        exit 1
-        ;;
-    *)
-        # unknown and it might not be an error
-        echo "$out" >&2
-esac
+if ! $use_su; then
+    # Check adb root
+    out="$("$adb" $adbargs root 2>&1)"
+    case "$out" in
+        *"more than"*)
+            echo "Error: $out" >&2
+            echo "You can edit this script to add adb arguments in order to specify
+    which device to connect to." >&2
+            exit 1
+            ;;
+        *"no devices"*|*"unable to connect"*)
+            echo "Error: $out" >&2
+            echo "Please make sure your Android device is running." >&2
+            exit 1
+            ;;
+        *production*)
+            echo "Error: you do not have adb root on your device. If you are using an
+    Android emulator you must select a system image without Google Play.
+    Alternatively, use the -su flag if your device is rooted." >&2
+            exit 1
+            ;;
+        *restarting*|*already*)
+            # everything OK
+            ;;
+        *cannot*)
+            # unknown but this is probably an error
+            echo "Error: $out" >&2
+            exit 1
+            ;;
+        *)
+            # unknown and it might not be an error
+            echo "$out" >&2
+    esac
+fi
 
 # Obtain and check the cookie file
 mkdir -p "$nsodir"
 chmod 700 "$nsodir"
 ckfile="$nsodir/Cookies"
 rm -f "$ckfile"
-out="$("$adb" $adbargs pull -a /data/user/0/com.nintendo.znca/app_webview/Default/Cookies "$nsodir" 2>&1)"
+if $use_su; then
+    out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$nsodir"/Cookies 2>&1)"
+else
+    out="$("$adb" $adbargs pull -a "$cookiesfile" "$nsodir"/Cookies 2>&1)"
+fi
 if ! [ -f "$ckfile" ]; then
     echo "Error: adb did not pull the cookie file" >&2
     echo "$out" >&2
