@@ -26,7 +26,7 @@ nsodir="$NSODATA"/cookies
 # Hostname of SplatNet app server:
 snhost=api.lp1.av5ja.srv.nintendo.net
 # Last known SplatNet web version:
-wvdefault=6.0.0-bbd7c576
+wvdefault=10.0.0-88706e32
 
 # Check presence of essential tools
 ok=true
