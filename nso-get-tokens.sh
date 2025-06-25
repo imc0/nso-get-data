@@ -92,7 +92,7 @@ if ! $use_cache && ! $use_su; then
         *"more than"*)
             echo "Error: $out" >&2
             echo "You can edit this script to add adb arguments in order to specify
-    which device to connect to." >&2
+which device to connect to." >&2
             exit 1
             ;;
         *"no devices"*|*"unable to connect"*)
@@ -102,8 +102,8 @@ if ! $use_cache && ! $use_su; then
             ;;
         *production*)
             echo "Error: you do not have adb root on your device. If you are using an
-    Android emulator you must select a system image without Google Play.
-    Alternatively, use the -su flag if your device is rooted." >&2
+Android emulator you must select a system image without Google Play.
+Alternatively, use the -su flag if your device is rooted." >&2
             exit 1
             ;;
         *restarting*|*already*)
