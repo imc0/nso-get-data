@@ -37,12 +37,16 @@ Usage: $0 [flags]
 where valid flags are:
     -C | -cache  don't pull cookies from the device; use the cached file
     -h | -help   print this help
+    -ssh DEST[:PORT] use ssh to contact the device
     -su          Android device needs 'su' to access the NSO database
 EOH
 }
 
+use_adb=true
 use_su=false
 use_cache=false
+ssh=""
+port=""
 while [ $# -gt 0 ]; do
     flag="$1"
     # strip double '-' so that --flag is the same as -flag
@@ -55,7 +59,23 @@ while [ $# -gt 0 ]; do
     -su)
         use_su=true ;;
     -C|-cache)
-        use_cache=true ;;
+        use_cache=true
+        use_adb=false ;;
+    -ssh)
+        if [ $# = 1 ]; then
+            echo "Error: -ssh needs an argument" >&2
+            exit 1
+        fi
+        shift
+        use_adb=false
+        ssh="$1"
+        port="${ssh##*:}"
+        case "$port" in
+            "$ssh")   port="" ;;
+            *[!0-9]*) port="" ;;
+            *)        ssh="${ssh%:*}"
+        esac
+        ;;
     *)
         echo "Unrecognised argument: '$flag' (use -h for help)" >&2
         exit 1
@@ -65,7 +85,7 @@ done
 
 # Check presence of essential tools
 ok=true
-if ! $use_cache; then
+if $use_adb; then
     if ! command -v "$adb" >/dev/null; then
         cat <<EOF >&2
 Error: adb is not on your path. You can get it from Android SDK in the
@@ -77,7 +97,13 @@ EOF
         ok=false
     fi
 fi
-for cmd in sqlite3 curl perl; do
+cmds="sqlite3 curl perl"
+if [ -n "$ssh" ]; then
+    if $su; then cmds="$cmds ssh"
+    else cmds="$cmds scp"
+    fi
+fi
+for cmd in $cmds; do
     if ! command -v "$cmd" > /dev/null; then
         echo "Error: $cmd is not in your path.  Install it from your distro." >&2
         ok=false
@@ -85,7 +111,7 @@ for cmd in sqlite3 curl perl; do
 done
 if ! $ok; then exit 1; fi
 
-if ! $use_cache && ! $use_su; then
+if $use_adb && ! $use_su; then
     # Check adb root
     out="$("$adb" $adbargs root 2>&1)"
     case "$out" in
@@ -131,15 +157,29 @@ else
     mkdir -p "$nsodir"
     chmod 700 "$nsodir"
     rm -f "$ckfile"
-    if $use_su; then
-        out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$ckfile" 2>&1)"
-    else
-        out="$("$adb" $adbargs pull -a "$cookiesfile" "$ckfile" 2>&1)"
-    fi
-    if ! [ -f "$ckfile" ]; then
-        echo "Error: adb did not pull the cookie file" >&2
-        echo "$out" >&2
-        exit 1
+    if [ -n "$ssh" ]; then
+        if $use_su; then
+            out="$(ssh -x ${port:+-p} $port "$ssh" "su -c 'cat \"$cookiesfile\"'" 2>&1 > "$ckfile")"
+        else
+            out="$(scp ${port:+-P} $port -p "$ssh":"$cookiesfile" "$ckfile" 2>&1)"
+        fi
+        if ! [ -s "$ckfile" ] ; then
+            echo "Error: did not copy the cookie file from ssh.  Check your access" >&2
+            $use_su || echo "and add the -su flag if you need to switch to root on the device." >&2
+            echo "$out" >&2
+            exit 1
+        fi
+    else # use adb
+        if $use_su; then
+            out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$ckfile" 2>&1)"
+        else
+            out="$("$adb" $adbargs pull -a "$cookiesfile" "$ckfile" 2>&1)"
+        fi
+        if ! [ -f "$ckfile" ]; then
+            echo "Error: adb did not pull the cookie file" >&2
+            echo "$out" >&2
+            exit 1
+        fi
     fi
 fi
 cdate="$(stat -c %Y "$ckfile")"
