@@ -171,7 +171,7 @@ else
         fi
     else # use adb
         if $use_su; then
-            out="$("$adb" $adbargs shell su -c "cat $cookiesfile" > "$ckfile" 2>&1)"
+            out="$("$adb" $adbargs shell su -c "cat $cookiesfile" 2>&1 > "$ckfile")"
         else
             out="$("$adb" $adbargs pull -a "$cookiesfile" "$ckfile" 2>&1)"
         fi
