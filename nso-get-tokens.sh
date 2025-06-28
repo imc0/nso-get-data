@@ -29,16 +29,20 @@ snhost=api.lp1.av5ja.srv.nintendo.net
 wvdefault=10.0.0-88706e32
 # Location of the Cookies file on the device
 cookiesfile=/data/user/0/com.nintendo.znca/app_webview/Default/Cookies
+# Default name of the s3s config
+def_s3sconf="config.txt"
 
 # Argument processing and help
 help () {
     cat <<EOH >&2
-Usage: $0 [flags]
+Usage: $0 [flags] [s3s_config]
 where valid flags are:
     -C | -cache  don't pull cookies from the device; use the cached file
     -h | -help   print this help
     -ssh DEST[:PORT] use ssh to contact the device
     -su          Android device needs 'su' to access the NSO database
+    -w | -write  write tokens to config.txt (or named s3s config)
+and s3s_config is the config file for s3s (implies -w if present)
 EOH
 }
 
@@ -47,6 +51,8 @@ use_su=false
 use_cache=false
 ssh=""
 port=""
+s3sconf=""
+do_write=false
 while [ $# -gt 0 ]; do
     flag="$1"
     # strip double '-' so that --flag is the same as -flag
@@ -76,12 +82,45 @@ while [ $# -gt 0 ]; do
             *)        ssh="${ssh%:*}"
         esac
         ;;
-    *)
+    -w|-write)
+        do_write=true ;;
+    -*)
         echo "Unrecognised argument: '$flag' (use -h for help)" >&2
         exit 1
+        ;;
+    *)
+        if [ -n "$s3sconf" ]; then
+            echo "Error: extra argument: '$flag' (use -h for help)" >&2
+            exit 1
+        fi
+        s3sconf="$1"
+        do_write=true
     esac
     shift
 done
+
+# Check s3s config (if supplied)
+if $do_write; then
+    [ -z "$s3sconf" ] && s3sconf="$def_s3sconf"
+    if ! [ -e "$s3sconf" ]; then
+        echo "Error: $s3sconf: file does not exist" >&2
+        exit 1
+    elif ! [ -f "$s3sconf" ]; then
+        echo "Error: $s3sconf: not a regular file" >&2
+        exit 1
+    elif ! [ -r "$s3sconf" ]; then
+        echo "Error: $s3sconf: file is not readable" >&2
+        exit 1
+    elif ! [ -w "$s3sconf" ]; then
+        echo "Error: $s3sconf: file is not writable" >&2
+        exit 1
+    fi
+    read test < "$s3sconf"
+    if [ "$test" != "{" ] || ! grep -q gtoken "$s3sconf"; then
+        echo "Error: $s3sconf: does not look like an s3s config file" >&2
+        exit 1
+    fi
+fi
 
 # Check presence of essential tools
 ok=true
@@ -225,12 +264,14 @@ fi
 
 # Attempt to get a bulletToken from our gtoken
 out="$(curl -s -X POST -H 'Content-Type: application/json' -H "X-Web-View-Ver: $nsover" -H 'accept-language: en-US' -H 'x-nacountry: US' -b "_gtoken=$g" "https://$snhost/api/bullet_tokens")"
+bt=""
 case "$out" in
     *bulletToken*)
         bt="$(echo "$out" | tr -d \" | tr '{},' '\012' | grep bulletToken | cut -d: -f2)"
         if [ -z "$bt" ]; then echo "Error: failed to parse the bulletToken from web response" >&2
         elif [ "${#bt}" -ne 124 ]; then
             echo "Error: returned bulletToken is the wrong length" >&2
+            bt=""
         else
             echo "Your bulletToken is on the next line(s):"
             echo "$bt"
@@ -245,3 +286,24 @@ NSO menu.  Wait a few seconds, then re-run this script." >&2
            echo "Error data: $out"
        fi
 esac
+
+if $do_write && [ -n "$bt" ]; then
+    out="$(perl -i.bak -lpe "my \$gt='$g';my \$bt='$bt';"'
+        $_="    \"gtoken\": \"$gt\"," if /"gtoken":/;
+        $_="    \"bullettoken\": \"$bt\"," if /"bullettoken":/;
+    ' "$s3sconf" 2>&1)"
+    if [ $? -eq 0 ]; then
+        if [ -z "$out" ]; then
+            echo "Config file '$s3sconf' written"
+        else
+            echo "$out" >&2
+            echo "Warning: config file '$s3sconf' may not have been written" >&2
+        fi
+    else
+        echo "An error occurred while writing the config file '$s3sconf'"
+        if ! [ -s "$s3sconf" ] && [ -s "$s3sconf.bak" ]; then
+            mv "${s3sconf}.bak" "$s3sconf"
+            echo "Original file restored"
+        fi
+    fi
+fi
