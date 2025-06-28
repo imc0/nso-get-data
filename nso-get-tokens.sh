@@ -41,6 +41,7 @@ where valid flags are:
     -h | -help   print this help
     -ssh DEST[:PORT] use ssh to contact the device
     -su          Android device needs 'su' to access the NSO database
+    -termux      Assume this is running in Termux (usually auto-detected)
     -w | -write  write tokens to config.txt (or named s3s config)
 and s3s_config is the config file for s3s (implies -w if present)
 EOH
@@ -53,6 +54,16 @@ ssh=""
 port=""
 s3sconf=""
 do_write=false
+
+# detect Termux to set defaults before processing arguments
+if [ -n "$TERMUX_VERSION" ]; then
+    use_termux=true
+    use_adb=false
+    [ -r "$cookiesfile" ] || use_su=true
+else
+    use_termux=false
+fi
+
 while [ $# -gt 0 ]; do
     flag="$1"
     # strip double '-' so that --flag is the same as -flag
@@ -84,6 +95,10 @@ while [ $# -gt 0 ]; do
         ;;
     -w|-write)
         do_write=true ;;
+    -termux)
+        use_termux=true
+        use_adb=false
+        ;;
     -*)
         echo "Unrecognised argument: '$flag' (use -h for help)" >&2
         exit 1
@@ -148,6 +163,15 @@ for cmd in $cmds; do
         ok=false
     fi
 done
+if $use_termux && $use_su; then
+    out="$(su -c 'id -u' 2>&1 </dev/null)"
+    if [ "$out" != 0 ]; then
+        echo "$out" >&2
+        echo "Error: in Termux this script requires root and 'su' did not work.
+Make sure you granted permission to Termux in your root manager." >&2
+        ok=false
+    fi
+fi
 if ! $ok; then exit 1; fi
 
 if $use_adb && ! $use_su; then
@@ -205,6 +229,18 @@ else
         if ! [ -s "$ckfile" ] ; then
             echo "Error: did not copy the cookie file from ssh.  Check your access" >&2
             $use_su || echo "and add the -su flag if you need to switch to root on the device." >&2
+            echo "$out" >&2
+            exit 1
+        fi
+    elif $use_termux; then
+        if $use_su; then
+            me="$(id -u):$(id -g)"
+            out="$(su -c "cp -p '$cookiesfile' '$ckfile' && chown '$me' '$ckfile'")"
+        else
+            out="$(cp -p "$cookiesfile" "$ckfile" 2>&1)"
+        fi
+        if ! [ -s "$ckfile" ] ; then
+            echo "Error: did not copy the cookie file from the Nintendo app" >&2
             echo "$out" >&2
             exit 1
         fi
