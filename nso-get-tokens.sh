@@ -37,7 +37,7 @@ help () {
     cat <<EOH >&2
 Usage: $0 [flags] [s3s_config]
 where valid flags are:
-    -C | -cache  don't pull cookies from the device; use the cached file
+    -c | -cache  don't pull cookies from the device; use the cached file
     -h | -help   print this help
     -ssh DEST[:PORT] use ssh to contact the device
     -su          Android device needs 'su' to access the NSO database
@@ -75,7 +75,7 @@ while [ $# -gt 0 ]; do
         help; exit ;;
     -su)
         use_su=true ;;
-    -C|-cache)
+    -c|-cache)
         use_cache=true
         use_adb=false ;;
     -ssh)
