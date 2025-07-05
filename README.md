@@ -259,7 +259,7 @@ nso-get-tokens.sh [flags] [s3s_config]
  - `-h` or `-help`  
    Print a short help message explaining these options and exit.
 
- - `-ssh [`*USER*`@]`*ADDR*`[:`*PORT*`]`  
+ - `-ssh [USER@]ADDR[:PORT]`  
    Access the Android device using SSH protocol.  The *USER@ADDR* syntax is
    used exactly as in normal SSH; as an extension to the syntax you may also
    add a colon and a port number to the SSH destination.
