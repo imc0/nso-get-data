@@ -39,9 +39,11 @@ Usage: $0 [flags] [s3s_config]
 where valid flags are:
     -c | -cache  don't pull cookies from the device; use the cached file
     -h | -help   print this help
+    -q           output fewer messages than usual
     -ssh DEST[:PORT] use ssh to contact the device
     -su          Android device needs 'su' to access the NSO database
     -termux      Assume this is running in Termux (usually auto-detected)
+    -v           output more messages than usual
     -w | -write  write tokens to config.txt (or named s3s config)
 and s3s_config is the config file for s3s (implies -w if present)
 EOH
@@ -54,6 +56,8 @@ ssh=""
 port=""
 s3sconf=""
 do_write=false
+quiet=false
+verbose=false
 
 # detect Termux to set defaults before processing arguments
 if [ -n "$TERMUX_VERSION" ]; then
@@ -78,6 +82,8 @@ while [ $# -gt 0 ]; do
     -c|-cache)
         use_cache=true
         use_adb=false ;;
+    -q)
+        quiet=true ;;
     -ssh)
         if [ $# = 1 ]; then
             echo "Error: -ssh needs an argument" >&2
@@ -93,6 +99,8 @@ while [ $# -gt 0 ]; do
             *)        ssh="${ssh%:*}"
         esac
         ;;
+    -v)
+        verbose=true ;;
     -w|-write)
         do_write=true ;;
     -termux)
@@ -210,11 +218,14 @@ Alternatively, use the -su flag if your device is rooted." >&2
 fi
 
 # Obtain and check the cookie file
+$verbose && echo "Info: about to copy the cookie file"
 ckfile="$nsodir/Cookies"
 if $use_cache; then
     if ! [ -r "$ckfile" ]; then
         echo "Error: there is no cached Cookies file for -cache to use" >&2
         exit 1
+    else
+        $verbose && echo "Info: using cached Cookies file"
     fi
 else
     mkdir -p "$nsodir"
@@ -256,6 +267,7 @@ else
             exit 1
         fi
     fi
+    $verbose && echo "Info: obtained cookie file"
 fi
 cdate="$(stat -c %Y "$ckfile")"
 ndate="$(date +%s)"
@@ -271,9 +283,13 @@ if [ -z "$g" ]; then
 elif [ "${#g}" -ne 926 ]; then
     echo "Warning: gtoken has the wrong length and is probably invalid" >&2
 fi
-echo "Your gtoken is on the next line(s):"
-echo "$g"
-echo ""
+if $verbose || ! $do_write; then
+    $quiet || echo "Your gtoken is on the next line(s):"
+    echo "$g"
+    echo ""
+elif $do_write && ! $quiet; then
+    echo "Info: obtained gtoken"
+fi
 
 # Attempt to get the SplatNet web version
 nsover=""
@@ -281,16 +297,21 @@ if [ -f "$wvfile" ]; then
     wdate="$(stat -c %Y "$wvfile")"
     if [ "$((wdate+48*3600))" -ge $ndate ]; then
         read nsover < "$wvfile"
+        [ -n "$nsover" ] && $verbose && echo "Info: cached SplatNet web version: $nsover"
     fi
 fi
 if [ -z "$nsover" ]; then
     # try to figure out the main JS filename from SplatNet index
+    $verbose && echo "Info: fetching SplatNet main page"
     js="$(curl -s "https://$snhost/" | grep -a -o 'main\.[0-9a-f]*\.js')"
     if [ -n "$js" ]; then
         # try to parse the JS file to extract the web view version
+        $verbose && echo "Info: fetching JS file $js"
         nsover="$(curl -s "https://$snhost/static/js/$js" | perl -lne 'print "$2$1" if /null===\(..="([0-9a-f]{8}).{60,120}`,..=`([0-9.]+-)/;')"
     fi
-    if [ -n "$nsover" ]; then echo "$nsover" > "$wvfile"
+    if [ -n "$nsover" ]; then
+        echo "$nsover" > "$wvfile"
+        $verbose && echo "Info: obtained SplatNet web version: $nsover"
     else echo "Warning: failed to get SplatNet web version from NSO. This may
 mean NSO is temporarily down, or the interface has changed in a way that
 prevents this script from working." >&2
@@ -299,6 +320,7 @@ fi
 [ -z "$nsover" ] && nsover=$wvdefault
 
 # Attempt to get a bulletToken from our gtoken
+$verbose && echo "Info: asking for a bulletToken"
 out="$(curl -s -X POST -H 'Content-Type: application/json' -H "X-Web-View-Ver: $nsover" -H 'accept-language: en-US' -H 'x-nacountry: US' -b "_gtoken=$g" "https://$snhost/api/bullet_tokens")"
 bt=""
 case "$out" in
@@ -309,8 +331,12 @@ case "$out" in
             echo "Error: returned bulletToken is the wrong length" >&2
             bt=""
         else
-            echo "Your bulletToken is on the next line(s):"
-            echo "$bt"
+            if $verbose || ! $do_write; then
+                $quiet || echo "Your bulletToken is on the next line(s):"
+                echo "$bt"
+            elif $do_write && ! $quiet; then
+                echo "Info: obtained bulletToken"
+            fi
         fi
         ;;
     *) echo "Error: Nintendo did not give us a bulletToken.
@@ -330,7 +356,7 @@ if $do_write && [ -n "$bt" ]; then
     ' "$s3sconf" 2>&1)"
     if [ $? -eq 0 ]; then
         if [ -z "$out" ]; then
-            echo "Config file '$s3sconf' written"
+            $quiet || echo "Config file '$s3sconf' written"
         else
             echo "$out" >&2
             echo "Warning: config file '$s3sconf' may not have been written" >&2

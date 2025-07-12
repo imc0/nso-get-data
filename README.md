@@ -259,6 +259,10 @@ nso-get-tokens.sh [flags] [s3s_config]
  - `-h` or `-help`  
    Print a short help message explaining these options and exit.
 
+ - `-q`  
+   Output fewer messages (but still output warnings and errors).  In
+   `-write` mode a successful run doesn't produce any output.
+
  - `-ssh [USER@]ADDR[:PORT]`  
    Access the Android device using SSH protocol.  The *USER@ADDR* syntax is
    used exactly as in normal SSH; as an extension to the syntax you may also
@@ -273,6 +277,10 @@ nso-get-tokens.sh [flags] [s3s_config]
    Tells the script to operate in Termux mode (i.e., running locally on the
    Android device).  It's not usually necessary to specify this flag because
    the script should detect whether it's running in Termux.
+
+ - `-v`  
+   Output slightly more progress messages.  In `-write` mode, echo the tokens
+   on the screen as well as writing them to the file.
 
  - `-w` or `-write`  
    Write tokens to a config file after obtaining them.  The config file must
