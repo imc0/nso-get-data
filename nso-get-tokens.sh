@@ -105,10 +105,14 @@ while [ $# -gt 0 ]; do
         use_adb=false ;;
     -q)
         quiet=true ;;
-    -ssh)
-        shift
+    -ssh|-ssh=*)
+        if [ "$flag" = -ssh ]; then
+            shift
+            ssh="$1"
+        else
+            ssh="${1#*=}"
+        fi
         use_adb=false
-        ssh="$1"
         port="${ssh##*:}"
         case "$port" in
             "$ssh")   port="" ;;
