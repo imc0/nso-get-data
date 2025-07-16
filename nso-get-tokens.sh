@@ -5,7 +5,7 @@
 # for a bulletToken.  These tokens can then be pasted into s3s.
 #
 
-# If adb is not on your path, write the full path here:
+# Name or full path of 'adb' command
 adb=adb
 # Optional extra args to supply to adb (e.g. '-e')
 adbargs=""
@@ -37,6 +37,8 @@ help () {
     cat <<EOH >&2
 Usage: $0 [flags] [s3s_config]
 where valid flags are:
+    -adb PATH    specify path to the adb program
+    -adb-args ARGS  specify extra aptions for adb
     -c | -cache  don't pull cookies from the device; use the cached file
     -h | -help   print this help
     -q           output fewer messages than usual
@@ -74,21 +76,36 @@ while [ $# -gt 0 ]; do
     if [ "$flag" != "${flag#--}" ]; then
         flag="${flag#-}"
     fi
+    # check for flags that need an argument
+    case "$flag" in
+    -ssh|-adb|-adb-args)
+        if [ $# = 1 ]; then
+            echo "Error: $flag needs an argument" >&2
+            exit 1
+        fi
+    esac
+    # interpret the flag
     case "$flag" in
     -h|-help)
         help; exit ;;
     -su)
         use_su=true ;;
+    -adb)
+        shift
+        adb="$1" ;;
+    -adb=*)
+        adb="${1#*=}" ;;
+    -adb-args)
+        shift
+        adbargs="$1" ;;
+    -adb-args=*)
+        adbargs="${1#*=}" ;;
     -c|-cache)
         use_cache=true
         use_adb=false ;;
     -q)
         quiet=true ;;
     -ssh)
-        if [ $# = 1 ]; then
-            echo "Error: -ssh needs an argument" >&2
-            exit 1
-        fi
         shift
         use_adb=false
         ssh="$1"
@@ -147,14 +164,24 @@ fi
 
 # Check presence of essential tools
 ok=true
-if $use_adb; then
+if [ "$adb" != adb ]; then
+    # if adb was explicitly configured, check that it exists
+    # (but not a fatal error if we don't intend to use it)
+    if ! command -v "$adb" >/dev/null; then
+        if $use_adb; then err="Error"; ok=false; else err="Warning"; fi
+        echo "$err: the specified adb ($adb) can not be executed" >&2
+        $use_adb && case "$adb" in
+        /*) [ ! -e "$adb" ] && echo "(file not found)" >&2 ;;
+        *) echo "(no executable found on your path)" >&2
+        esac
+    fi
+elif $use_adb; then
     if ! command -v "$adb" >/dev/null; then
         cat <<EOF >&2
 Error: adb is not on your path. You can get it from Android SDK in the
 platform-tools package, or maybe from your distro in the android-tools
-or adb package. If it is installed, you can edit this script to specify
+or adb package. If it is installed, you can use the -adb flag to specify
 the full path.
-Current value: adb=$adb
 EOF
         ok=false
     fi

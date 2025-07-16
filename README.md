@@ -250,6 +250,17 @@ nso-get-tokens.sh [flags] [s3s_config]
 
 ### Flags
 
+ - `-adb PATH`  
+   Specify the name and/or path of the adb program that will be used if not
+   using some other access mode (e.g., ssh).  The default is `adb`.
+
+ - `-adb-args ARGS`  
+   Specify the flags to be passed to the adb program if it is used.  This
+   would usually a flag to select which Android device to contact if there
+   are several available (e.g., `-e` for an emulator or `-d` for a USB
+   device).  If there are several flags you will need to quote them to make
+   the shell pass them to the script as one parameter.
+
  - `-c` or `-cache`  
    If you recently obtained tokens from your device, you can re-print the
    tokens from the cached cookie file instead of accessing the device again.
