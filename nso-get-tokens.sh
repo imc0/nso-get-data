@@ -37,16 +37,16 @@ help () {
     cat <<EOH >&2
 Usage: $0 [flags] [s3s_config]
 where valid flags are:
-    -adb PATH    specify path to the adb program
-    -adb-args ARGS  specify extra aptions for adb
-    -c | -cache  don't pull cookies from the device; use the cached file
-    -h | -help   print this help
-    -q           output fewer messages than usual
-    -ssh DEST[:PORT] use ssh to contact the device
-    -su          Android device needs 'su' to access the NSO database
-    -termux      Assume this is running in Termux (usually auto-detected)
-    -v           output more messages than usual
-    -w | -write  write tokens to config.txt (or named s3s config)
+  -adb PATH        specify path to the adb program
+  -adb-args ARGS   specify extra aptions for adb
+  -c | -cache      don't pull cookies from the device; use the cached file
+  -h | -help       print this help
+  -q               output fewer messages than usual
+  -ssh DEST[:PORT] use ssh to contact the device
+  -su              Android device needs 'su' to access the NSO database
+  -termux          Assume this is running in Termux (usually auto-detected)
+  -v               output more messages than usual
+  -w | -write      write tokens to config.txt (or named s3s config)
 and s3s_config is the config file for s3s (implies -w if present)
 EOH
 }
