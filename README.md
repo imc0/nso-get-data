@@ -240,6 +240,9 @@ about it.
 
    - Run s3s again with your chosen flags to upload battle data.
 
+   - You can shortcut the last two commands above by running
+     `nso-get-tokens.sh -r` which writes your tokens and then executes `s3s -r`.
+
 ## Command reference for this script
 
 ### Synopsis
@@ -270,9 +273,39 @@ nso-get-tokens.sh [flags] [s3s_config]
  - `-h` or `-help`  
    Print a short help message explaining these options and exit.
 
+ - `-M`  
+   Turn on `-run` mode and add `-M` to the flags to run s3s with; i.e.,
+   a shorter way of writing `-run -M`.  Note that this shortcut doesn't
+   take a numeric argument, so if you need one then you should write
+   `-run "-M nn"` instead.
+
  - `-q`  
    Output fewer messages (but still output warnings and errors).  In
    `-write` mode a successful run doesn't produce any output.
+
+ - `-r`  
+   Turn on `-run` mode and add `-r` to the flags to run s3s with; i.e.,
+   a shorter way of writing `-run -r`.
+
+ - `-run "ARGS"`  
+   Turn on `-write` mode (which writes tokens to the s3s config file – see
+   below).  After writing the tokens, run the s3s script with the given
+   arguments.  If the arguments contain blanks then you must quote them
+   so that the shell passes them as a single argument to this script.
+   It is not possible to meta-quote blanks (i.e., to have the blanks passed
+   as arguments to s3s).
+
+   The ARGS will usually be flag arguments to the s3s script, and `s3s.py`
+   should be in the current directory or in your PATH.  But instead you can
+   write the name or path of the s3s script at the beginning of the ARGS.
+   (Technically it could also be any other command, but that might not
+   be as useful.)
+
+   It is permitted, though not recommended, to write `-run "ARGS"` more than
+   once, and the arguments will be added together.  This means you can
+   combine the `-r` and `-M` shortcut flags with each other and with `-run`.
+   But it's an error if more than one of the ARGS have a command name at the
+   beginning.
 
  - `-ssh [USER@]ADDR[:PORT]`  
    Access the Android device using SSH protocol.  The *USER@ADDR* syntax is

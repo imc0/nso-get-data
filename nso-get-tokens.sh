@@ -31,6 +31,8 @@ wvdefault=10.0.0-88706e32
 cookiesfile=/data/user/0/com.nintendo.znca/app_webview/Default/Cookies
 # Default name of the s3s config
 def_s3sconf="config.txt"
+# Default name of the s3s Python script
+def_s3s="s3s.py"
 
 # Argument processing and help
 help () {
@@ -41,7 +43,10 @@ where valid flags are:
   -adb-args ARGS   specify extra aptions for adb
   -c | -cache      don't pull cookies from the device; use the cached file
   -h | -help       print this help
+  -M               enable -run and add -M to arguments
   -q               output fewer messages than usual
+  -r               enable -run and add -r to arguments
+  -run "ARGS"      run s3s after writing the tokens (implies -w)
   -ssh DEST[:PORT] use ssh to contact the device
   -su              Android device needs 'su' to access the NSO database
   -termux          Assume this is running in Termux (usually auto-detected)
@@ -57,6 +62,7 @@ use_cache=false
 ssh=""
 port=""
 s3sconf=""
+s3s=""
 do_write=false
 quiet=false
 verbose=false
@@ -78,7 +84,7 @@ while [ $# -gt 0 ]; do
     fi
     # check for flags that need an argument
     case "$flag" in
-    -ssh|-adb|-adb-args)
+    -ssh|-adb|-adb-args|-run)
         if [ $# = 1 ]; then
             echo "Error: $flag needs an argument" >&2
             exit 1
@@ -103,8 +109,40 @@ while [ $# -gt 0 ]; do
     -c|-cache)
         use_cache=true
         use_adb=false ;;
+    -M)
+        s3s="${s3s}${s3s:+ }-M"
+        do_write=true ;;
     -q)
         quiet=true ;;
+    -r)
+        s3s="${s3s}${s3s:+ }-r"
+        do_write=true ;;
+    -run|-run=*)
+        if [ "$flag" = -run ]; then
+            shift
+            new_s3s="$1"
+        else
+            new_s3s="${1#*=}"
+        fi
+        if [ -n "$s3s" ]; then
+            case "$s3s" in
+            -*)
+                case "$new_s3s" in
+                -*) s3s="$s3s $new_s3s" ;;
+                *)  s3s="$new_s3s $s3s" ;;
+                esac ;;
+            *)
+                case "$new_s3s" in
+                -*) s3s="$s3s $new_s3s" ;;
+                *)
+                    echo "Error: conflicting -run instructions" >&2
+                    exit 1
+                esac
+            esac
+        else s3s="$new_s3s"
+        fi
+        do_write=true
+        ;;
     -ssh|-ssh=*)
         if [ "$flag" = -ssh ]; then
             shift
@@ -398,5 +436,26 @@ if $do_write && [ -n "$bt" ]; then
             mv "${s3sconf}.bak" "$s3sconf"
             echo "Original file restored"
         fi
+        exit 1
+    fi
+fi
+
+if [ -n "$bt" ] && [ -n "$s3s" ]; then
+    case "$s3s" in
+    -*)
+        if [ -r "$def_s3s" ]; then s3s="python3 $def_s3s $s3s"
+        elif command -v "$def_s3s" >/dev/null; then s3s="$def_s3s $s3s"
+        else
+            echo "Error: $def_s3s is not found so can't run it" >&2
+            exit 1
+        fi
+        ;;
+    '~'/*)
+        s3s="$HOME${s3s#'~'}"
+    esac
+    $verbose && echo "Running: $s3s"
+    if ! $s3s; then
+        echo "Error: running the command failed ($s3s)" >&2
+        exit 1
     fi
 fi
