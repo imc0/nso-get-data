@@ -349,7 +349,7 @@ g="$(sqlite3 "$nsodir"/Cookies "select value from cookies where name='_gtoken' o
 if [ -z "$g" ]; then
     echo "Error: failed to pull the gtoken from the cookie file" >&2
     exit 1
-elif [ "${#g}" -ne 926 ]; then
+elif [ "${#g}" -ne 926 ] && [ "${#g}" -ne 958 ]; then
     echo "Warning: gtoken has the wrong length and is probably invalid" >&2
 fi
 if $verbose || ! $do_write; then
