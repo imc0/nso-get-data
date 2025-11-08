@@ -26,7 +26,7 @@ nsodir="$NSODATA"/cookies
 # Hostname of SplatNet app server:
 snhost=api.lp1.av5ja.srv.nintendo.net
 # Last known SplatNet web version:
-wvdefault=10.0.0-cba84fcd
+wvdefault=10.0.0-753e80af
 # Location of the Cookies file on the device
 cookiesfile=/data/user/0/com.nintendo.znca/app_webview/Default/Cookies
 # Default name of the s3s config
